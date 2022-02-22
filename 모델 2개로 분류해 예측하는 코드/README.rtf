@@ -1,0 +1,147 @@
+{\rtf1\ansi\ansicpg949\cocoartf2513
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;\f1\fnil\fcharset129 AppleSDGothicNeo-Regular;\f2\fnil\fcharset0 Menlo-Regular;
+}
+{\colortbl;\red255\green255\blue255;\red27\green31\blue34;\red21\green23\blue26;}
+{\*\expandedcolortbl;;\cssrgb\c14118\c16078\c18039;\cssrgb\c10588\c12157\c13725\c5098;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww16760\viewh13880\viewkind0
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 # 
+\f1 More Coffee \'c6\'c0 \'c8\'c6\'b7\'c3 \'b9\'d7 \'b0\'e1\'b0\'fa \'c1\'a6\'c3\'e2
+\f0 \
+\
+\
+## 
+\f1 MZ \'c0\'ce\'b0\'f8\'c1\'f6\'b4\'c9 \'c7\'d8\'c4\'bf\'c5\'e6
+\f0  
+\f1 \'b4\'eb\'c8\'b8\
+#### \'a1\'aeAI  \'c0\'e5\'c4\'a1\'bf\'eb STT\'b8\'a6 \'c0\'a7\'c7\'d1 \'c0\'c7\'b5\'b5 \'ba\'d0\'b7\'f9 (AI- NLU with STT(Speech To Text))\'a1\'af\
+\
+\
+## Task\
+#### 785\'b0\'b3 \'c0\'c7\'b5\'b5 labels\'b8\'a6 \'bf\'b9\'c3\'f8\'c7\'cf\'b4\'c2 Text Classification\
+\
+
+\f0 \
+## 
+\f1 \'bb\'e7\'bf\'eb \'b8\'f0\'b5\'a8\
+#### Bert \'b1\'e2\'b9\'dd \'b8\'f0\'b5\'a8 \'c1\'df ** 
+\f0 KoELECTRA **
+\f1 \'b8\'a6
+\f0  
+\f1 \'bc\'b1\'c5\'c3\'c7\'df\'bd\'c0\'b4\'cf\'b4\'d9.\
+
+\f0 \
+\
+## \'93
+\f1 KoELECTRA\'a1\'b1 \'b8\'f0\'b5\'a8 \'bc\'d2\'b0\'b3\
+#### \'bf\'a9\'b7\'af
+\f0  
+\f1 \'b9\'f6\'c0\'fc
+\f0  
+\f1 \'c1\'df
+\f0  
+\f2\fs27\fsmilli13600 \cf2 \cb3 \expnd0\expndtw0\kerning0
+KoELECTRA-Small-v3
+\f0\fs24 \cf0 \cb1 \kerning1\expnd0\expndtw0  
+\f1 \'b9\'f6\'c0\'fc\'c0\'bb
+\f0  
+\f1 \'bb\'e7\'bf\'eb\'c7\'df\'bd\'c0\'b4\'cf\'b4\'d9
+\f0 .\
+#### Vocab Size 3
+\f1 \'b8\'b8
+\f0  5
+\f1 \'c3\'b5\'b0\'b3\'b7\'ce
+\f0  Pretrained 
+\f1 \'b5\'c8
+\f0  
+\f1 \'b8\'f0\'b5\'a8\'c0\'d4\'b4\'cf\'b4\'d9
+\f0 .
+\f1 \
+##### 
+\f0 reference : 
+\f1 https://github.com/monologg/KoELECTRA\
+\
+\
+## \'c4\'da\'b5\'e5 \'c1\'f8\'c7\'e0\
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\pardirnatural\partightenfactor0
+
+\f0 \cf0 #### Class Imbalance 
+\f1 \'bf\'cf\'c8\'ad\'b8\'a6 \'c0\'a7\'c7\'d8, 
+\f0  
+\f1 \'b8\'f0\'b5\'a8
+\f0   
+\f1 \'b5\'ce
+\f0  
+\f1 \'b0\'b3\'b8\'a6
+\f0  
+\f1 \'bf\'ac\'b0\'e1\'c7\'cf\'bf\'a9
+\f0  
+\f1 \'be\'d3\'bb\'f3\'ba\'ed\'c7\'cf\'bf\'b4\'bd\'c0\'b4\'cf\'b4\'d9.\
+#### 
+\f0 Class 
+\f1 \'bc\'f6\'b0\'a1
+\f0  
+\f1 \'c0\'fb\'c0\'ba
+\f0  60
+\f1 \'b0\'b3
+\f0  
+\f1 label \'b1\'e2\'c1\'d8\'c0\'b8\'b7\'ce \'c7\'d8\'b4\'e7 Class \'b5\'a5\'c0\'cc\'c5\'cd\'b8\'a6 \'a1\'aeothers\'a1\'af\'b7\'ce \'c4\'a1\'c8\'af, \'b5\'a5\'c0\'cc\'c5\'cd\'b8\'a6 \'bd\'bd\'b6\'f3\'c0\'cc\'bd\'cc \'c7\'cf\'bf\'a9 \'b8\'f0\'b5\'a81 \'c8\'c6\'b7\'c3 \'b9\'d7 \'bf\'b9\'c3\'f8 \'c8\'c4, \'b3\'aa\'b8\'d3\'c1\'f6 \'a1\'aeothers\'a1\'af\'bf\'a1 \'c7\'d8\'b4\'e7\'c7\'cf\'b4\'c2 \'b5\'a5\'c0\'cc\'c5\'cd\'b7\'ce \'b8\'f0\'b5\'a82 \'c8\'c6\'b7\'c3 \'c8\'c4 \'bf\'b9\'c3\'f8\'c7\'cf\'bf\'b4\'bd\'c0\'b4\'cf\'b4\'d9.\
+\
+*Training \'b0\'fa\'c1\'a4\
+- \'c3\'b9\'b9\'f8\'c2\'b0 \'b8\'f0\'b5\'a8 1.\'bc\'b1\'be\'f0 -> 2.training -> 3.\'c0\'fa\'c0\'e5\
+model = \'a1\'d9\'a1\'da\'a1\'d9\'a1\'da\'a1\'d9\
+model.fit(padded_first_tr, label_first_tr, validation_data = [padded_first_dev, label_first_dev], \'a1\'d9\'a1\'da\'a1\'d9\'a1\'da\'a1\'d9)\
+model.save(\'a1\'d9\'a1\'da\'a1\'d9my_first_model\'a1\'d9\'a1\'da\'a1\'d9) \
+\
+- \'b5\'ce\'b9\'f8\'c2\'b0 \'b8\'f0\'b5\'a8 1.\'bc\'b1\'be\'f0 -> 2.training -> 3.\'c0\'fa\'c0\'e5\
+model = \'a1\'d9\'a1\'da\'a1\'d9\'a1\'da\'a1\'d9 # model.fit(padded_second_tr, label_second_tr, validation_data = [padded_second_dev, label_second_dev], \'a1\'d9\'a1\'da\'a1\'d9\'a1\'da\'a1\'d9)\
+model.save(\'a1\'d9\'a1\'da\'a1\'d9my_first_model\'a1\'d9\'a1\'da\'a1\'d9)\
+\
+#### \'c8\'c6\'b7\'c3 \'bc\'ba\'b4\'c9\'c0\'ba \'b8\'f0\'b5\'a81+ \'b8\'f0\'b5\'a82 \'be\'d3\'bb\'f3\'ba\'ed \'b0\'e1\'b0\'fa, dev set \'b1\'e2\'c1\'d8 ACC 67.3% \'b3\'aa\'bf\'d4\'bd\'c0\'b4\'cf\'b4\'d9.\
+\
+\uc0\u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \u8212 \
+\
+# Docker \'bd\'c7\'c7\'e0 \'b8\'ed\'b7\'c9\'be\'ee \'bc\'f8\'bc\'ad\
+\
+#### \'c0\'a9\'b5\'b5\'bf\'ec 10 home \'bf\'a1\'bc\'ad \'c0\'db\'bc\'ba\'c7\'cf\'bf\'b4\'bd\'c0\'b4\'cf\'b4\'d9. \
+#### Cmd (\'b8\'ed\'b7\'c9\'be\'ee \'c7\'c1\'b7\'d2\'c7\'c1\'c6\'ae) \'bf\'a1\'bc\'ad \'c7\'cf\'bd\'c3\'b8\'e9 \'c0\'df \'b5\'b9\'be\'c6\'b0\'a9\'b4\'cf\'b4\'d9.\
+\
+1.   \'c0\'cc\'b9\'cc\'c1\'f6 \'ba\'d2\'b7\'af\'bf\'c0\'b1\'e2 / docker pull tensorflow/tensorflow:2.4.0\
+2.   \'b5\'b5\'c4\'bf\'bd\'c7\'c7\'e0 / docker run -dit --name more_coffee3 tensorflow/tensorflow:2.4.0 bash\
+3.   \'b5\'b5\'c4\'bf\'c1\'f8\'c0\'d4 / docker exec \uc0\u8211 i \u8211 t more_coffee3 bin/bash\
+4.   apt-get update\
+5.   apt-get upgrade\
+6.   apt-get install vim\
+7.   exit\
+8.   host\'c0\'c7 \'c6\'c4\'c0\'cf \'b0\'e6\'b7\'ce\'c0\'d4\'b4\'cf\'b4\'d9 --> \'c0\'cc\'b0\'c9 \'c4\'c1\'c5\'d7\'c0\'cc\'b3\'ca\'b7\'ce copy  \
+docker cp C:\\submission/class60/. more_coffee3:/\
+9.   docker exec -i -t more_coffee3 bin/bash \'b7\'ce \'c1\'f8\'c0\'d4\
+10.   ls \'c3\'c4\'bc\'ad \'c0\'df \'b5\'e9\'be\'ee\'b0\'a1\'c0\'d6\'b4\'c2\'c1\'f6 \'c8\'ae\'c0\'ce\
+11.   \'c0\'d6\'c0\'b8\'b8\'e9 exit \'b7\'ce \'ba\'fc\'c1\'ae\'b3\'aa\'bf\'c8\
+12.   docker commit more_coffee3 mc_3\
+13.   docker save -o mc_3.tar.gz mc_3\
+14.   (\'c0\'fa\'c0\'e5\'b5\'c8 mc_3 \'c0\'c7 \'c0\'a7\'c4\'a1\'b4\'c2 \'b0\'b3\'c0\'ce\'b8\'b6\'b4\'d9 \'b4\'d9\'b8\'a3\'b9\'c7\'b7\'ce \'b0\'cb\'bb\'f6\'bf\'a1\'bc\'ad \'c0\'cc\'b8\'a7\'c3\'c4\'bc\'ad \'c6\'fa\'b4\'f5\'c8\'ae\'c0\'ce)\
+15.   docker exec -i -t more_coffee3 bin/bash\
+16.   pip install \uc0\u8211 -no\u8211 cache-dir -r requirements.txt.txt\
+17.   python prediction.py \uc0\u8212 input_text=test.txt \u8212 output_text = result.txt\
+\
+\
+# Docker \'c1\'a6\'c3\'e2 \'b3\'bb\'bf\'eb\
+\
+## 1. prediction.py\
+#### \'c6\'f2\'b0\'a1\'bd\'c3 inference \'bf\'b9\'c3\'f8\'c0\'bb \'c0\'a7\'c7\'d1 \'c4\'da\'b5\'e5\'c0\'d4\'b4\'cf\'b4\'d9.\
+#### $python prediction.py \uc0\u8212 input_text=test.txt \u8212 output_text = result.txt \'bd\'c7\'c7\'e0 \'b0\'e1\'b0\'fa, result.txt\'b8\'a6 \'bb\'fd\'bc\'ba\'c7\'d5\'b4\'cf\'b4\'d9.\
+\
+## 2. model_save \'c6\'fa\'b4\'f5\
+#### \'c8\'c6\'b7\'c3\'b5\'c8 \'b8\'f0\'b5\'a8 \'c6\'c4\'c0\'cf \'b9\'d7 \'c8\'c6\'b7\'c3 \'bd\'ba\'c5\'a9\'b8\'b3\'c6\'ae \'c0\'d4\'b4\'cf\'b4\'d9.\
+\
+## 3. Requirement.txt.txt\
+#### Requirement.txt \'b0\'fc\'b7\'c3 \'c1\'d6\'c0\'c7\'c7\'d2 \'c1\'a1\'c0\'b8\'b7\'ce, 
+\f2\fs27\fsmilli13600 \cf2 \cb3 \expnd0\expndtw0\kerning0
+torch
+\f1\fs24 \cf0 \cb1 \kerning1\expnd0\expndtw0  \'bc\'b3\'c4\'a1\'c7\'d2 \'b6\'a7 $pip install \uc0\u8212 no-cache-dir -r requirements.txt.txt \'b8\'ed\'b7\'c9\'be\'ee\'b7\'ce \'bd\'c7\'c7\'e0\'c7\'d8\'c1\'d6\'be\'ee\'be\'df \'c7\'d5\'b4\'cf\'b4\'d9. (Memory Error \'b9\'ae\'c1\'a6 \'bf\'b9\'b9\'e6\'c0\'bb \'c0\'a7\'c7\'d4)\
+
+\f0 \
+\
+}
