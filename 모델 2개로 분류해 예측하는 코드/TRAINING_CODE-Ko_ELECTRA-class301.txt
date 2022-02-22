@@ -1,0 +1,206 @@
+!pip install kobert_transformers
+
+import pickle
+import datetime
+import numpy as np
+import pandas as pd
+import os
+from sklearn.preprocessing import LabelEncoder
+
+
+from kobert_transformers import get_tokenizer
+from transformers import ElectraTokenizer, TFElectraModel
+
+import tensorflow as tf
+import tensorflow.keras as keras
+
+from tensorflow.keras.preprocessing.text import Tokenizer # 전처리 관련
+from tensorflow.keras.preprocessing.sequence import pad_sequences # 전처리 관련
+
+num_del_class = 301     # top X 이하 클래스를 others로 
+max_len = 36
+lr = 1e-5
+batch_size = 128
+epoch = 40
+
+run_name = '-small_ep25-'+ datetime.datetime.today().strftime('%m%d_%H%M_%S')
+print(run_name)
+
+
+def build_model(transformer,n_class, max_len=max_len, lr=lr):
+    """
+    https://www.kaggle.com/xhlulu/jigsaw-tpu-distilbert-with-huggingface-and-keras
+    """
+    input_ids = keras.layers.Input(shape=(max_len, ), dtype=tf.int32)
+    
+    x = transformer(input_ids)[0]
+    x = x[:, 0, :]
+    x = keras.layers.Dense(n_class, activation='softmax', name='sigmoid')(x)
+    
+    # BUILD AND COMPILE MODEL
+    model = keras.models.Model(inputs=input_ids, outputs=x)
+    model.compile(
+        loss='sparse_categorical_crossentropy', 
+        metrics=['accuracy'], 
+        optimizer=keras.optimizers.Adam(lr=lr)
+    )
+    
+    return model
+	
+
+def save_model(model, save_dir='./model_save/model_',run_name=run_name):
+    """
+    Special function to load a keras model that uses a transformer layer
+    """
+    save_dir = save_dir + run_name +'_' +str(model.output.shape[1]) + '_'+ datetime.datetime.today().strftime('%m%d_%H%M_%S')
+    os.makedirs(save_dir, exist_ok=True)
+    
+    transformer = model.layers[1]
+    transformer.save_pretrained(save_dir+"/transformer")
+    
+    sigmoid_path = save_dir+'/sigmoid.pickle'
+    sigmoid = model.get_layer('sigmoid').get_weights()
+    pickle.dump(sigmoid, open(sigmoid_path, 'wb'))
+    
+    
+def load_model(run_name , n_class, save_dir='./model_save/model_',  max_len=max_len):
+    """
+    Special function to load a keras model that uses a transformer layer
+    """
+    save_dir = save_dir + run_name
+    sigmoid_path = save_dir + '/sigmoid.pickle'
+    
+    transformer_layer = TFElectraModel.from_pretrained(save_dir+"/transformer")
+    model = build_model(transformer_layer,n_class, max_len=max_len)
+    
+    sigmoid = pickle.load(open(sigmoid_path, 'rb'))
+    model.get_layer('sigmoid').set_weights(sigmoid)
+    
+    return model
+	
+	
+def preprocess_input(speech_input, tokenizer, max_len=max_len):
+    """
+    input : 1-dim array of input texts. ex: train['speech'].values
+    output : list of token + list of ids + array padded input
+    """
+    
+    token_input = []
+    ids_input = []
+
+    for text in speech_input:
+        text = '[CLS] '  + text + ' [SEP]'
+        token_input.append(tokenizer.tokenize(text))
+        ids_input.append(tokenizer.convert_tokens_to_ids(token_input[-1]))
+    
+    padded_input = pad_sequences(ids_input, maxlen=max_len, truncating='post', padding='post')
+    
+    return token_input, ids_input, padded_input
+
+def preprocess_label_first(label_input, del_list, label_encoder):
+    """
+    input : 1-dim array of input label. ex: train['label'].values
+    output : encoded label
+    """
+    label_output = pd.Series(label_input).replace(del_list,'others')
+    label_output = label_encoder.transform(label_output)
+    
+    return label_output
+
+def preprocess_label_second(label_input, label_encoder):
+    """
+    input : 1-dim array of input label. ex: train['label'].values
+    output : encoded label
+    """
+    label_output = label_encoder.transform(label_input)
+    
+    return label_output
+    
+	
+	
+train_raw = pd.read_csv('./data/train.txt', sep='\t', header=None, names=['label', 'speech'])
+
+train_raw = train_raw.dropna()
+train_raw = train_raw.drop(34284)   # input이 '문' 한글자인거 제외
+
+
+dev_raw = pd.read_csv('./data/dev.txt', sep='\t', header=None, names=['label', 'speech'])
+
+
+class_del_list = train_raw['label'].value_counts()[num_del_class:].index.values
+
+
+LE_first = LabelEncoder()
+LE_first.fit( (train_raw['label'].replace(class_del_list,'others')) )
+
+LE_second = LabelEncoder()
+LE_second.fit(class_del_list)
+
+
+tokenizer = ElectraTokenizer.from_pretrained("monologg/koelectra-small-v3-discriminator")
+
+
+token_first_tr, ids_first_tr, padded_first_tr = preprocess_input(train_raw['speech'].values,tokenizer)
+token_first_dev, ids_first_dev, padded_first_dev = preprocess_input(dev_raw['speech'].values,tokenizer)
+
+label_first_tr = preprocess_label_first(train_raw['label'].values,class_del_list,LE_first)
+label_first_dev = preprocess_label_first(dev_raw['label'].values,class_del_list,LE_first)
+
+
+train_second = train_raw.loc[train_raw['label'].isin(class_del_list),]
+dev_second = dev_raw.loc[dev_raw['label'].isin(class_del_list),]
+
+token_second_tr, ids_second_tr, padded_second_tr = preprocess_input(train_second['speech'].values,tokenizer)
+token_second_dev, ids_second_dev, padded_second_dev = preprocess_input(dev_second['speech'].values,tokenizer)
+
+label_second_tr = preprocess_label_second(train_second['label'].values,LE_second)
+label_second_dev = preprocess_label_second(dev_second['label'].values,LE_second)
+
+
+len_list= []
+for text in token_first_tr:
+    len_list.append(len(text))
+print(np.unique(len_list))
+token_first_tr[np.argmax(len_list)]
+
+
+print(len(token_first_tr))
+print(len(token_first_dev))
+print(np.unique(label_first_tr)[:10])
+print(np.unique(label_first_dev)[:10])
+print(LE_first.classes_[:4])
+print(token_first_tr[:2])
+print(token_first_dev[:2])
+print(label_first_tr)
+print(label_first_dev)
+print()
+print()
+print(len(token_second_tr))
+print(len(token_second_dev))
+print(np.unique(label_second_tr)[:10])
+print(np.unique(label_second_dev)[:10])
+print(LE_second.classes_[:4])
+print(token_second_tr[:2])
+print(token_second_dev[:2])
+print(label_second_tr)
+print(label_second_dev)
+
+
+# ☆★☆★☆ 첫번째 모델 ☆★☆★☆
+transformer_layer = TFElectraModel.from_pretrained("monologg/koelectra-small-v3-discriminator", from_pt=True)
+
+model1 = build_model(transformer_layer,n_class = num_del_class+1)
+model1.fit(padded_first_tr,label_first_tr, epochs=epoch, batch_size = batch_size, validation_data=(padded_first_dev,label_first_dev))
+
+save_model(model1)
+del model1
+
+
+# ☆★☆★☆ 두번째 모델 ☆★☆★☆
+transformer_layer = TFElectraModel.from_pretrained("monologg/koelectra-small-v3-discriminator", from_pt=True)
+
+model2 = build_model(transformer_layer,n_class = len(class_del_list))
+
+model2.fit(padded_second_tr,label_second_tr, epochs=epoch*2, batch_size = batch_size, validation_data=(padded_second_dev,label_second_dev))
+
+save_model11(model2)
