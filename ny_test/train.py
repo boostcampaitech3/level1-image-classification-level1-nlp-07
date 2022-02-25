@@ -70,11 +70,11 @@ print('==> Preparing data..')
 
 
 ## -- model
-net = Resnet18(num_classes=18)
-net = net.to(device)
-# wandb.init(project="mask_classification", entity="hannayeoniee", name="test3")
-# wandb.init(project="mask_classification", entity="level1-nlp-07", name="test1")
-# wandb.config.update(args)
+model = Resnet18(num_classes=18)
+model = model.to(device)
+# naming convention: model_optimizer_batch_lr_kfold_data-aug
+# wandb.init(project="mask_classification", entity="hannayeoniee", name="final_test")
+wandb.init(project="mask_classification", entity="level1-nlp-07", name="test1")
 
 
 ## -- data_loader
@@ -82,7 +82,6 @@ train_dataset = MyDataset(train_paths_aug_df, transform, aug_transform)
 train_dataloader = DataLoader(train_dataset,
                             batch_size = BATCH_SIZE, 
                             shuffle = True)
-
 valid_dataset = MyDataset(valid_paths_df, transform)
 valid_dataloader = DataLoader(valid_dataset,
                               batch_size = BATCH_SIZE,
@@ -91,10 +90,9 @@ valid_dataloader = DataLoader(valid_dataset,
 
 # -- loss & metric
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(net.parameters(), lr=LEARNING_RATE)
+optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 dataloaders = {"train" : train_dataloader,
               "test" : valid_dataloader}
-
 
 
 
@@ -113,20 +111,19 @@ def adjust_learning_rate(optimizer, epoch, LR):
 # Training
 def train(epoch):
     print('\nEpoch: %d' % epoch)
-    net.train()
+    model.train()
     train_loss = 0
     correct = 0
     total = 0
     print('LR: {:0.6f} Batch: {}'.format(optimizer.param_groups[0]['lr'],BATCH_SIZE))
-    for batch_idx, (inputs, targets) in enumerate(tqdm(train_dataset)):
+#     for batch_idx, (inputs, targets) in enumerate(tqdm(train_dataset)):
+    for batch_idx, (inputs, targets) in enumerate(tqdm(train_dataloader)):
         inputs= inputs.to(device)
         targets = targets.to(device)
-        print('inputs shape:', inputs.shape)
-        print('targets shape:', targets.shape)
         
         optimizer.zero_grad()
         
-        outputs = net(inputs)
+        outputs = model(inputs)
         loss = criterion(outputs, targets)
         loss.backward()
         optimizer.step()
@@ -143,11 +140,11 @@ def train(epoch):
     if epoch%5==0:
         torch.save({
           'epoch': epoch,
-          'model_state_dict': net.state_dict(),
+          'model_state_dict': model.state_dict(),
           'optimizer_state_dict': optimizer.state_dict(),
           'loss': train_loss/(batch_idx+1),
           "acc": 100*correct/total
-          }, f"/opt/ml/result/checkpoint/resnet18_e_{epoch}_{loss}.pt")
+          }, f"./result/checkpoint/resnet18_epoch_{epoch}_loss_{0:0.5f}.pt".format(loss))
     
     # wandb logging
     wandb.log({'Epoch': epoch,
@@ -159,7 +156,7 @@ acc = 0.0
         
 def test(epoch):
     global acc
-    net.eval()
+    model.eval()
     test_loss = 0
     correct = 0
     total = 0
@@ -168,18 +165,21 @@ def test(epoch):
     valid_images = []
 
     with torch.no_grad():
-        for batch_idx, (inputs, targets) in enumerate(tqdm(valid_dataset)):
-            inputs, targets = inputs.to(device), targets.to(device)
-            outputs = net(inputs)
+#         for batch_idx, (inputs, targets) in enumerate(tqdm(valid_dataset)):
+        for batch_idx, (inputs, targets) in enumerate(tqdm(valid_dataloader)):
+            inputs = inputs.to(device)
+            targets = targets.to(device)
+            outputs = model(inputs)
             loss = criterion(outputs, targets)
 
             test_loss += loss.item()
             _, predicted = outputs.max(1)
             total += targets.size(0)
             correct += predicted.eq(targets).sum().item()
-
-            valid_images.append(wandb.Image(inputs[0], 
-                                                caption=f'Predicted: {predicted[0].item()}, Ground-truth: {targets[0]}'))
+            
+#             print('예측결과: ', f'Predicted: {predicted[0].item()}, Ground-truth: {targets[0]}')
+            valid_images.append(wandb.Image(inputs[0],
+                                            caption=f'Predicted: {predicted[0].item()}, Ground-truth: {targets[0]}'))
 
         print('Loss: %.3f | Acc: %.3f%% (%d/%d)'
             % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
@@ -189,73 +189,79 @@ def test(epoch):
             acc = 100.*correct/total
             torch.save({
               'epoch': epoch,
-              'model_state_dict': net.state_dict(),
+              'model_state_dict': model.state_dict(),
               'optimizer_state_dict': optimizer.state_dict(),
               'loss': test_loss/(batch_idx+1),
               "acc": 100*correct/total
-              }, f"/opt/ml/result/checkpoint/resnet18_best_performance_{acc}_{loss}.pt")
+              }, f"./result/checkpoint/resnet18_best_performance_acc_{0:0.5f}_loss_{0:0.5f}.pt".format(acc, loss))
+#             print("acc: {0:0.5f}, loss: {0:0.5f}".format(acc, loss))
+
             
         # wandb logging
         wandb.log({'Epoch': epoch,
-               'Test loss': test_loss/(batch_idx+1),
-               'Test accuracy': 100*correct/total})
+                   'Test loss': test_loss/(batch_idx+1),
+                   'Test accuracy': 100*correct/total})
         
 
-   
-# start_epoch = 1
-# for epoch in range(start_epoch, start_epoch+EPOCHS):
-#     adjust_learning_rate(optimizer, epoch, LR=LEARNING_RATE)
-    
-#     train(epoch)
-#     test(epoch)
-
-
-
-
-best_test_accuracy = 0.
-best_test_loss = 9999.
-model_saved = "./result"
-
-for epoch in range(EPOCHS):
-    for phase in ["train", "test"]:
-        running_loss = 0.
-        running_acc = 0.
-        if phase == "train":
-            net.train() # 네트워크 모델을 train 모드로 두어 gradient을 계산하고, 여러 sub module (배치 정규화, 드롭아웃 등)이 train mode로 작동할 수 있도록 함
-        elif phase == "test":
-            net.eval() # 네트워크 모델을 eval 모드 두어 여러 sub module들이 eval mode로 작동할 수 있게 함
-        
-        for ind, (images, labels) in enumerate(dataloaders[phase]):
-            images = images.to(device)
-            labels = labels.to(device)
-        
-            optimizer.zero_grad() # parameter gradient를 업데이트 전 초기화함
-
-            with torch.set_grad_enabled(phase == "train"): # train 모드일 시에는 gradient를 계산하고, 아닐 때는 gradient를 계산하지 않아 연산량 최소화
-                logits = net(images)
-                _, preds = torch.max(logits, 1) # 모델에서 linear 값으로 나오는 예측 값 ([0.9,1.2, 3.2,0.1,-0.1,...])을 최대 output index를 찾아 예측 레이블([2])로 변경함  
-                loss = criterion(logits, labels)
-
-                if phase == "train":
-                    loss.backward() # 모델의 예측 값과 실제 값의 CrossEntropy 차이를 통해 gradient 계산
-                    optimizer.step() # 계산된 gradient를 가지고 모델 업데이트
-
-            running_loss += loss.item() * images.size(0) # 한 Batch에서의 loss 값 저장
-            running_acc += torch.sum(preds == labels.data) # 한 Batch에서의 Accuracy 값 저장
-
-        # 한 epoch이 모두 종료되었을 때,
-        epoch_loss = running_loss / len(dataloaders[phase].dataset)
-        epoch_acc = running_acc / len(dataloaders[phase].dataset)
-
-        print(f"현재 epoch-{epoch}의 {phase}-데이터 셋에서 평균 Loss : {epoch_loss:.3f}, 평균 Accuracy : {epoch_acc:.3f}")
-        if phase == "test" and best_test_accuracy < epoch_acc: # phase가 test일 때, best accuracy 계산
-            best_test_accuracy = epoch_acc
-            os.makedirs(model_saved, exist_ok=True)
-            torch.save(net, f"{model_saved}/accr_resnet18_CEloss_batchsize:{BATCH_SIZE}_lr:{LEARNING_RATE}.pt")
-        if phase == "test" and best_test_loss > epoch_loss: # phase가 test일 때, best loss 계산
-            best_test_loss = epoch_loss
-            os.makedirs(model_saved, exist_ok=True)
-            torch.save(net, f"{model_saved}/loss_resnet18_CEloss_batchsize:{BATCH_SIZE}_lr:{LEARNING_RATE}.pt")
             
-print("학습 종료!")
-print(f"최고 accuracy : {best_test_accuracy}, 최고 낮은 loss : {best_test_loss}")
+if __name__ == "__main__":
+    # 혜윤님 버전
+    start_epoch = 1
+    for epoch in range(start_epoch, start_epoch+EPOCHS):
+        adjust_learning_rate(optimizer, epoch, LR=LEARNING_RATE)
+
+        train(epoch)
+        test(epoch)
+
+
+
+
+
+# # 민준님 버전
+# best_test_accuracy = 0.
+# best_test_loss = 9999.
+# model_saved = "./result"
+
+# for epoch in range(EPOCHS):
+#     for phase in ["train", "test"]:
+#         running_loss = 0.
+#         running_acc = 0.
+#         if phase == "train":
+#             net.train() # 네트워크 모델을 train 모드로 두어 gradient을 계산하고, 여러 sub module (배치 정규화, 드롭아웃 등)이 train mode로 작동할 수 있도록 함
+#         elif phase == "test":
+#             net.eval() # 네트워크 모델을 eval 모드 두어 여러 sub module들이 eval mode로 작동할 수 있게 함
+        
+#         for ind, (images, labels) in enumerate(dataloaders[phase]):
+#             images = images.to(device)
+#             labels = labels.to(device)
+        
+#             optimizer.zero_grad() # parameter gradient를 업데이트 전 초기화함
+
+#             with torch.set_grad_enabled(phase == "train"): # train 모드일 시에는 gradient를 계산하고, 아닐 때는 gradient를 계산하지 않아 연산량 최소화
+#                 logits = net(images)
+#                 _, preds = torch.max(logits, 1) # 모델에서 linear 값으로 나오는 예측 값 ([0.9,1.2, 3.2,0.1,-0.1,...])을 최대 output index를 찾아 예측 레이블([2])로 변경함  
+#                 loss = criterion(logits, labels)
+
+#                 if phase == "train":
+#                     loss.backward() # 모델의 예측 값과 실제 값의 CrossEntropy 차이를 통해 gradient 계산
+#                     optimizer.step() # 계산된 gradient를 가지고 모델 업데이트
+
+#             running_loss += loss.item() * images.size(0) # 한 Batch에서의 loss 값 저장
+#             running_acc += torch.sum(preds == labels.data) # 한 Batch에서의 Accuracy 값 저장
+
+#         # 한 epoch이 모두 종료되었을 때,
+#         epoch_loss = running_loss / len(dataloaders[phase].dataset)
+#         epoch_acc = running_acc / len(dataloaders[phase].dataset)
+
+#         print(f"현재 epoch-{epoch}의 {phase}-데이터 셋에서 평균 Loss : {epoch_loss:.3f}, 평균 Accuracy : {epoch_acc:.3f}")
+#         if phase == "test" and best_test_accuracy < epoch_acc: # phase가 test일 때, best accuracy 계산
+#             best_test_accuracy = epoch_acc
+#             os.makedirs(model_saved, exist_ok=True)
+#             torch.save(net, f"{model_saved}/accr_resnet18_CEloss_batchsize:{BATCH_SIZE}_lr:{LEARNING_RATE}.pt")
+#         if phase == "test" and best_test_loss > epoch_loss: # phase가 test일 때, best loss 계산
+#             best_test_loss = epoch_loss
+#             os.makedirs(model_saved, exist_ok=True)
+#             torch.save(net, f"{model_saved}/loss_resnet18_CEloss_batchsize:{BATCH_SIZE}_lr:{LEARNING_RATE}.pt")
+            
+# print("학습 종료!")
+# print(f"최고 accuracy : {best_test_accuracy}, 최고 낮은 loss : {best_test_loss}")
