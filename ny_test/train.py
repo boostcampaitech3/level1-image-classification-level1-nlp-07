@@ -1,3 +1,5 @@
+import argparse
+from cProfile import label
 import os
 import cv2
 import math
@@ -10,6 +12,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import torchvision.models as models
+from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
 
@@ -25,11 +28,14 @@ from dataset import MyDataset, data_processing
 # -- settings
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
+SAVE_DIR = './result/checkpoint/resnet18'
 
 # -- hyperparameters
-EPOCHS = 3
+EPOCHS = 10
 BATCH_SIZE = 64
 LEARNING_RATE = 1e-4
+LOG_INTERVAL = 20
+LR_DECAY_STEP = 5
 
 
 # -- load data
@@ -73,8 +79,9 @@ print('==> Preparing data..')
 model = Resnet18(num_classes=18)
 model = model.to(device)
 # naming convention: model_optimizer_batch_lr_kfold_data-aug
-# wandb.init(project="mask_classification", entity="hannayeoniee", name="final_test")
-wandb.init(project="mask_classification", entity="level1-nlp-07", name="test1")
+# wandb.init(project="mask_classification", entity="hannayeoniee", name="test_0226")
+save_name = "test_ny_Resnet18_Adam_CEloss_batch64_aug-profile"
+wandb.init(project="mask_classification", entity="level1-nlp-07", name=save_name)
 
 
 ## -- data_loader
@@ -91,10 +98,14 @@ valid_dataloader = DataLoader(valid_dataset,
 # -- loss & metric
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+scheduler = StepLR(optimizer, LR_DECAY_STEP, gamma=0.5)  # step size마다 gamma비율로 lr 감소시킴
 dataloaders = {"train" : train_dataloader,
               "test" : valid_dataloader}
 
 
+def get_lr(optimizer):
+    for param_group in optimizer.param_groups:
+        return param_group['lr']
 
 def adjust_learning_rate(optimizer, epoch, LR):
     if epoch <= 10:
@@ -152,7 +163,6 @@ def train(epoch):
                'Train accuracy': 100*correct/total})
 
     
-acc = 0.0
         
 def test(epoch):
     global acc
@@ -203,17 +213,327 @@ def test(epoch):
                    'Test accuracy': 100*correct/total})
         
 
+
+# 학습할 때 batch마다 optimizer.step(), epoch마다 scheduler.step() 수행
+def train2(epoch):
+    # train loop
+    model.train()
+    loss_value = 0
+    matches = 0
+    for idx, train_batch in enumerate(tqdm(train_dataloader)):
+        inputs, labels = train_batch
+        inputs = inputs.to(device)
+        labels = labels.to(device)
+
+        optimizer.zero_grad()
+
+        outputs = model(inputs)
+        preds = torch.argmax(outputs, dim=-1)
+        loss = criterion(outputs, labels)
+
+        loss.backward()
+        optimizer.step()
+
+        loss_value += loss.item()
+        matches += (preds == labels).sum().item()
+
+    
+        if (idx + 1) % LOG_INTERVAL == 0:
+            train_loss = loss_value / LOG_INTERVAL
+            train_acc = matches / BATCH_SIZE / LOG_INTERVAL
+            current_lr = get_lr(optimizer)
+            print(
+                f"Epoch[{epoch}/{EPOCHS}]({idx + 1}/{len(train_dataloader)}) || "
+                f"training loss {train_loss:4.4} || training accuracy {train_acc:4.2%} || lr {current_lr}"
+            )
+            # # tensorboard logging
+            # logger.add_scalar("Train/loss", train_loss, epoch * len(train_loader) + idx)
+            # logger.add_scalar("Train/accuracy", train_acc, epoch * len(train_loader) + idx)
+            # wandb logging
+            wandb.log({'Epoch': epoch, 
+                    'Train loss': train_loss, 
+                    'Train accuracy': train_acc})
             
+            loss_value = 0
+            matches = 0
+
+    # scheduler.step()  # learning rate scheduler
+
+
+
+def test2(epoch):
+    model.eval()
+    val_loss = 0
+    correct = 0
+    # best_val_acc = 0
+    # best_val_loss = np.inf
+
+    # for epoch in range(EPOCHS):
+
+    valid_images = []  # wandb에 기록할 테스트 이미지들
+
+    # val loop
+    with torch.no_grad():
+        print("Calculating validation results...")
+        # model.eval()
+        val_loss_items = []
+        val_acc_items = []
+        # figure = None
+
+        for val_batch in valid_dataloader:
+            inputs, labels = val_batch
+            inputs = inputs.to(device)
+            labels = labels.to(device)
+
+            outs = model(inputs)
+            preds = torch.argmax(outs, dim=-1)  # get the index of the max log-probability
+            val_loss += F.nll_loss(outs, labels, reduction='sum').item()  # sum up batch loss
+            correct += preds.eq(labels.view_as(preds)).sum().item()
+            # wandb에 현재 배치에 포함된 첫 번째 이미지에 대한 추론 결과 기록 
+            valid_images.append(wandb.Image(inputs[0], 
+                                            caption=f'Predicted: {preds[0].item()}, Ground-truth: {labels[0]}'))
+
+
+    val_loss /= len(valid_dataset)
+    val_acc = 100. * correct / len(valid_dataset)
+
+    print('\nValid set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
+        val_loss, correct, len(valid_dataset),
+        100. * correct / len(valid_dataset)))
+    
+    # wandb logging
+    wandb.log({'Epoch': epoch, 
+                'Valid loss': val_loss,
+                'Valid accuracy': val_acc,
+                'Valid images': valid_images})
+
+
+
+
+def get_lr(optimizer):
+    for param_group in optimizer.param_groups:
+        return param_group['lr']
+
+
+def train3(epoch):
+    model.train()
+    train_loss = 0
+    correct = 0
+    total = 0
+
+    for idx, train_batch in enumerate(tqdm(train_dataloader)):
+        inputs, labels = train_batch
+        inputs = inputs.to(device)
+        labels = labels.to(device)
+
+        optimizer.zero_grad()
+        outputs = model(inputs)
+        loss = criterion(outputs, labels)
+
+        loss.backward()
+        optimizer.step()
+
+        train_loss += loss.item()
+        preds = torch.argmax(outputs, dim=-1)
+        total += labels.size(0)
+        correct += preds.eq(labels).sum().item()
+
+    # print('Loss: %.3f | Acc: %.3f%% (%d/%d)'
+    #     % (train_loss/(idx+1), 100.*correct/total, correct, total))
+    final_train_loss = train_loss/(idx+1)
+    final_train_acc = 100*correct/total
+
+    current_lr = get_lr(optimizer)
+    print(
+        f"Epoch[{epoch}/{EPOCHS}]({idx + 1}/{len(train_dataloader)}) || Batch {BATCH_SIZE} || "
+        f"Train loss {0:0.5f} || Train accuracy {0:0.5f} ({correct}/{total}) || lr {current_lr}".format(final_train_loss, final_train_acc)
+        )
+
+    # model save
+    if epoch % 2 == 0:
+        torch.save({
+          'epoch': epoch,
+          'model_state_dict': model.state_dict(),
+          'optimizer_state_dict': optimizer.state_dict(),
+          'loss': final_train_loss,
+          'acc': final_train_acc
+          }, f"./result/checkpoint/resnet18_epoch_{epoch}_loss_{0:0.5f}.pt".format(final_train_loss))
+    
+    # wandb logging
+    wandb.log({'Epoch': epoch,
+                'Train accuracy': final_train_acc,
+                'Train loss': final_train_loss})
+
+
+best_acc = 0.0
+def test3(epoch):
+    global best_acc
+    model.eval()
+    val_loss = 0
+    correct = 0
+    total = 0
+
+    # wandb에 기록할 테스트 이미지들
+    valid_images = [] 
+
+    with torch.no_grad():
+        print("Calculating validation results...")
+
+        for idx, val_batch in enumerate(tqdm(valid_dataloader)):
+            inputs, labels = val_batch
+            inputs = inputs.to(device)
+            labels = labels.to(device)
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+
+            val_loss += loss.item()
+            preds = torch.argmax(outputs, dim=-1)  # get the index of the max log-probability
+            total += labels.size(0)
+            correct += preds.eq(labels).sum().item()
+
+            # wandb에 현재 배치에 포함된 첫 번째 이미지에 대한 추론 결과 기록 
+            valid_images.append(wandb.Image(inputs[0], 
+                                            caption=f'Predicted: {preds[0].item()}, Ground-truth: {labels[0]}'))
+
+        # 한 epoch이 모두 종료되었을 때
+        final_val_loss = val_loss/(idx+1)
+        final_val_acc = 100*correct/total
+        print(f"Val loss {final_val_loss:0.5f} || Val accuracy {final_val_acc:0.5f} ({correct}/{total})")
+
+        if best_acc <= final_val_acc:
+            best_acc = final_val_acc
+            torch.save({
+              'epoch': epoch,
+              'model_state_dict': model.state_dict(),
+              'optimizer_state_dict': optimizer.state_dict(),
+              'loss': final_val_loss,
+              "acc": final_val_acc
+              }, f"./result/checkpoint/resnet18_best_performance_acc_{0:0.5f}_loss_{0:0.5f}.pt".format(best_acc, final_val_loss))
+
+        # wandb logging
+        wandb.log({'Epoch': epoch, 
+                    'Valid loss': final_val_loss,
+                    'Valid accuracy': final_val_acc,
+                    'Valid images': valid_images})
+
+
+
+def main():
+    for epoch in range(EPOCHS):
+        train3(epoch)
+        test3(epoch)
+        scheduler.step()
+
+
 if __name__ == "__main__":
-    # 혜윤님 버전
-    start_epoch = 1
-    for epoch in range(start_epoch, start_epoch+EPOCHS):
-        adjust_learning_rate(optimizer, epoch, LR=LEARNING_RATE)
-
-        train(epoch)
-        test(epoch)
+    main()
 
 
+
+
+
+
+
+# 학습할 때 batch마다 optimizer.step(), epoch마다 scheduler.step() 수행
+def train_test():
+    best_val_acc = 0
+    best_val_loss = np.inf
+    for epoch in range(EPOCHS):
+        # train loop
+        model.train()
+        loss_value = 0
+        matches = 0
+        for idx, train_batch in enumerate(tqdm(train_dataloader)):
+            inputs, labels = train_batch
+            inputs = inputs.to(device)
+            labels = labels.to(device)
+
+            optimizer.zero_grad()
+
+            outputs = model(inputs)
+            preds = torch.argmax(outputs, dim=-1)
+            loss = criterion(outputs, labels)
+
+            loss.backward()
+            optimizer.step()
+
+            loss_value += loss.item()
+            matches += (preds == labels).sum().item()
+
+        
+            if (idx + 1) % LOG_INTERVAL == 0:
+                train_loss = loss_value / LOG_INTERVAL
+                train_acc = matches / BATCH_SIZE / LOG_INTERVAL
+                current_lr = get_lr(optimizer)
+                print(
+                    f"Epoch[{epoch}/{EPOCHS}]({idx + 1}/{len(train_dataloader)}) || "
+                    f"training loss {train_loss:4.4} || training accuracy {train_acc:4.2%} || lr {current_lr}"
+                )
+                # # tensorboard logging
+                # logger.add_scalar("Train/loss", train_loss, epoch * len(train_loader) + idx)
+                # logger.add_scalar("Train/accuracy", train_acc, epoch * len(train_loader) + idx)
+                # wandb logging
+                wandb.log({'Epoch': epoch, 
+                        'Train loss': train_loss, 
+                        'Train accuracy': train_acc})
+                
+                loss_value = 0
+                matches = 0
+
+        scheduler.step()  # learning rate scheduler
+        # wandb에 기록할 테스트 이미지들
+        valid_images = []
+
+        # val loop
+        with torch.no_grad():
+            print("Calculating validation results...")
+            model.eval()
+            val_loss_items = []
+            val_acc_items = []
+            figure = None
+            for val_batch in valid_dataloader:
+                inputs, labels = val_batch
+                inputs = inputs.to(device)
+                labels = labels.to(device)
+
+                outs = model(inputs)
+                preds = torch.argmax(outs, dim=-1)
+
+                loss_item = criterion(outs, labels).item()
+                acc_item = (labels == preds).sum().item()
+                val_loss_items.append(loss_item)
+                val_acc_items.append(acc_item)
+                # wandb에 현재 배치에 포함된 첫 번째 이미지에 대한 추론 결과 기록 
+                valid_images.append(wandb.Image(inputs[0], 
+                                                caption=f'Predicted: {preds[0].item()}, Ground-truth: {labels[0]}'))
+                # valid_images.append(wandb.Image(inputs, 
+                #                                 caption=f'Predicted: {preds.item()}, Ground-truth: {labels}'))
+
+
+            val_loss = np.sum(val_loss_items) / len(valid_dataloader)
+            val_acc = np.sum(val_acc_items) / len(valid_dataset)
+            best_val_loss = min(best_val_loss, val_loss)
+
+            if val_acc > best_val_acc:
+                print(f"New best model for val accuracy : {val_acc:4.2%}! saving the best model..")
+                # torch.save(model.module.state_dict(), f"{SAVE_DIR}/best.pth")
+                # torch.save(net, f"{model_saved}/loss_resnet18_CEloss_batchsize:{BATCH_SIZE}_lr:{LEARNING_RATE}.pt")
+                # torch.save(model.module.state_dict(), f"{SAVE_DIR}_best.pt")
+                torch.save(model, f"{SAVE_DIR}_best.pt")
+
+                best_val_acc = val_acc
+
+            # torch.save(model.module.state_dict(), f"{SAVE_DIR}_last.pt")
+            torch.save(model, f"{SAVE_DIR}_last.pt")
+            print(f"[Val] acc : {val_acc:4.2%}, loss: {val_loss:4.2} || "
+                f"best acc : {best_val_acc:4.2%}, best loss: {best_val_loss:4.2}")
+            
+            # wandb logging
+            wandb.log({'Epoch': epoch, 
+                       'Valid loss': val_loss, 
+                       'Valid accuracy': val_acc,
+                       'Valid images': valid_images})
+            print()
 
 
 
