@@ -5,6 +5,7 @@ import random
 import platform
 import warnings
 import collections
+# from train import SAVE_DIR
 from tqdm import tqdm, tqdm_notebook
 
 import glob
@@ -29,7 +30,6 @@ from albumentations.pytorch import transforms
 
 from model import Resnet18
 from dataset import MyDataset
-
 
 
 
@@ -58,7 +58,7 @@ def make_submission(model, loader, device, save_dir, name):
     all_predictions = []
     for images in loader:
         with torch.no_grad():
-            images = images.to(device)
+#             images = images.to(device)
             pred = model(images)
             pred = pred.argmax(dim=-1)
             all_predictions.extend(pred.cpu().numpy())
@@ -70,7 +70,7 @@ def make_submission(model, loader, device, save_dir, name):
     print('test inference is done!')
 
 
-
+    
 # -- settings
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
@@ -101,11 +101,20 @@ test_dataset = TestDataset(image_paths, transform)
 test_dataloader = DataLoader(test_dataset, batch_size=16, shuffle=False)
 
 
-# loss가 가장 낮았을때 모델 불러옴
-resnet18_best_CEloss = torch.load(f"{model_saved}/loss_resnet18_CEloss_batchsize:{BATCH_SIZE}_lr:{LEARNING_RATE}.pt")
-# acc가 가장 높았을때 모델 불러옴
-resnet18_best_acc = torch.load(f"{model_saved}/accr_resnet18_CEloss_batchsize:{BATCH_SIZE}_lr:{LEARNING_RATE}.pt")
+SAVE_DIR = './result/checkpoint/'
+# loaded_model = torch.load(f"{SAVE_DIR}resnet18_best_performance_acc_0.00000_loss_0.00000.pt")
+# loaded_model = torch.load('./result/checkpoint/resnet18_best_performance_acc_0.00000_loss_0.00000.pt')
+loaded_model = torch.load('./result/checkpoint/resnet18_epoch_8_loss_0.00000.pt')['model_state_dict']
 
-save_dir = './resnet18/'
+model = Resnet18(num_classes=18)
+model.load_state_dict(loaded_model)
 
-make_submission(resnet18_best_CEloss, test_dataloader, device, save_dir, 'CEloss_base')
+
+
+# make_submission(loaded_model, test_dataloader, device, SAVE_DIR, 'Resnet18_CEloss_base')
+make_submission(model, test_dataloader, device, SAVE_DIR, 'Resnet18_CEloss_base')
+
+# # loss가 가장 낮았을때 모델 불러옴
+# resnet18_best_CEloss = torch.load(f"{model_saved}/loss_resnet18_CEloss_batchsize:{BATCH_SIZE}_lr:{LEARNING_RATE}.pt")
+# # acc가 가장 높았을때 모델 불러옴
+# resnet18_best_acc = torch.load(f"{model_saved}/accr_resnet18_CEloss_batchsize:{BATCH_SIZE}_lr:{LEARNING_RATE}.pt")
